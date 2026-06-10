@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TriArk - チャット</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="chat-box">
+    <header class="chat-header">
+      <div class="header-left">
+        <img src="triark-logo-dark.svg" alt="TriArk" class="header-logo">
+        <div class="me-info">
+          <span id="myAvatar" class="avatar">?</span>
+          <span id="myName">読み込み中…</span>
+        </div>
+      </div>
+      <button id="logoutBtn">ログアウト</button>
+    </header>
+
+    <!-- 予約ステータスのバッジと、役割ごとのボタン -->
+    <div class="status-bar">
+      <span id="statusBadge" class="badge">読み込み中…</span>
+      <button id="requestBtn" class="action-btn" style="display:none;">予約をリクエストする</button>
+      <button id="approveBtn" class="action-btn" style="display:none;">予約を承認する</button>
+    </div>
+
+    <!-- メッセージがここに並ぶ -->
+    <div id="messages" class="messages"></div>
+
+    <!-- 入力エリア -->
+    <div class="input-area">
+      <input type="text" id="messageInput" placeholder="メッセージを入力">
+      <button id="sendBtn">送信</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot,
+      serverTimestamp,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    import { firebaseConfig } from "./config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const ROOM_ID = "room_001"; // 今回は共通ルーム固定
+
+    let currentUser = null;
+    let myRole = "guest";        // 自分の役割
+    let myName = "";             // 自分の名前
+    let otherReadTime = null;    // 相手が最後に読んだ時刻
+    let lastReadWrite = 0;       // 前回既読を書き込んだ時刻（ミリ秒）
+
+    // よく使う参照をまとめて用意
+    const roomRef = doc(db, "rooms", ROOM_ID);
+    const messagesRef = collection(db, "rooms", ROOM_ID, "messages");
+    const messagesDiv = document.getElementById("messages");
+    const statusBadge = document.getElementById("statusBadge");
+    const requestBtn = document.getElementById("requestBtn");
+    const approveBtn = document.getElementById("approveBtn");
+
+    const statusLabels = {
+      inquiry:   "問い合わせ中",
+      requested: "承認待ち",
+      confirmed: "予約確定",
+      finished:  "体験終了"
+    };
+
+    // ログインしているか確認。していなければログイン画面へ戻す
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        location.href = "index.html";
+        return;
+      }
+      currentUser = user;
+      await setupRoom();   // ルームの準備とステータス監視
+      listenMessages();    // メッセージの監視を開始
+    });
+
+    // ルームの準備とステータス監視
+    async function setupRoom() {
+      // 自分の名前と役割を調べる
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+      if (userSnap.exists()) {
+        myRole = userSnap.data().role || "guest";
+        myName = userSnap.data().name || "名無し";
+      }
+
+      // ヘッダーに自分の情報を表示
+      const roleLabel = (myRole === "host") ? "ホスト様" : "ゲスト様";
+      document.getElementById("myName").textContent = myName + "（" + roleLabel + "）";
+      const myAvatar = document.getElementById("myAvatar");
+      myAvatar.textContent = myName.charAt(0);          // 名前の頭文字
+      myAvatar.className = "avatar avatar-" + myRole;   // 役割で色を変える
+
+      // ルームがまだ無ければ作る
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) {
+        await setDoc(roomRef, {
+          status: "inquiry",
+          createdAt: serverTimestamp()
+        });
+      }
+
+      // ステータスと既読の変化を監視
+      onSnapshot(roomRef, (snap) => {
+        const data = snap.data();
+        const status = data.status;
+        statusBadge.textContent = statusLabels[status] || status;
+        statusBadge.className = "badge badge-" + status;
+        updateButtons(status);
+        // 相手の既読時刻を覚えておく
+        otherReadTime = (myRole === "host") ? data.lastReadByGuest : data.lastReadByHost;
+      });
+    }
+
+    // 自分の既読時刻を更新する（連続書き込みを防ぐため、3秒に1回まで）
+    async function markAsRead() {
+      const now = Date.now();
+      if (now - lastReadWrite < 3000) return;
+      lastReadWrite = now;
+      const field = (myRole === "host") ? "lastReadByHost" : "lastReadByGuest";
+      await updateDoc(roomRef, { [field]: serverTimestamp() });
+    }
+
+    // ステータスと役割に応じて、どのボタンを見せるか決める
+    function updateButtons(status) {
+      requestBtn.style.display = "none";
+      approveBtn.style.display = "none";
+      if (myRole === "guest" && status === "inquiry") {
+        requestBtn.style.display = "inline-block";
+      }
+      if (myRole === "host" && status === "requested") {
+        approveBtn.style.display = "inline-block";
+      }
+    }
+
+    // ゲスト：予約をリクエスト
+    requestBtn.addEventListener("click", async () => {
+      await updateDoc(roomRef, { status: "requested" });
+      await addDoc(messagesRef, {
+        senderId: "system",
+        text: "📩 ゲストが予約をリクエストしました",
+        type: "system",
+        createdAt: serverTimestamp()
+      });
+    });
+
+    // ホスト：予約を承認
+    approveBtn.addEventListener("click", async () => {
+      await updateDoc(roomRef, { status: "confirmed" });
+      await addDoc(messagesRef, {
+        senderId: "system",
+        text: "✅ ホストが予約を承認しました",
+        type: "system",
+        createdAt: serverTimestamp()
+      });
+    });
+
+    // メッセージをリアルタイムで監視して表示
+    function listenMessages() {
+      const q = query(messagesRef, orderBy("createdAt"));
+      onSnapshot(q, (snapshot) => {
+        markAsRead(); // 新着があるたびに自分の既読時刻を更新
+
+        // 自分が送った最後のメッセージの時刻を先に調べる
+        let lastMineTime = null;
+        snapshot.forEach((docSnap) => {
+          const m = docSnap.data();
+          if (m.senderId === currentUser.uid && m.createdAt) {
+            lastMineTime = m.createdAt;
+          }
+        });
+
+        // いったん空にして描き直す
+        messagesDiv.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const msg = docSnap.data();
+          const div = document.createElement("div");
+
+          // システムメッセージは中央に帯で表示
+          if (msg.type === "system") {
+            div.classList.add("system-row");
+            const note = document.createElement("div");
+            note.classList.add("system-note");
+            note.textContent = msg.text;
+            div.appendChild(note);
+            messagesDiv.appendChild(div);
+            return;
+          }
+
+          // 人間のメッセージ（左右に振り分け）
+          div.classList.add("message-row");
+          const isMine = (msg.senderId === currentUser.uid);
+          div.classList.add(isMine ? "mine" : "theirs");
+
+          // 送信者の頭文字アイコン
+          const avatar = document.createElement("div");
+          avatar.classList.add("avatar", "avatar-" + (msg.senderRole || "guest"));
+          avatar.textContent = (msg.senderName || "?").charAt(0);
+
+
+
+          // 吹き出し本体＋翻訳ボタン＋翻訳結果を、ひとまとめにする入れ物
+          const bubbleWrap = document.createElement("div");
+          bubbleWrap.classList.add("bubble-wrap");
+
+          const bubble = document.createElement("div");
+          bubble.classList.add("bubble");
+          bubble.textContent = msg.text;
+          bubbleWrap.appendChild(bubble);
+
+          // 翻訳ボタン
+          const transBtn = document.createElement("button");
+          transBtn.classList.add("translate-btn");
+          transBtn.textContent = "翻訳";
+          bubbleWrap.appendChild(transBtn);
+
+          // 翻訳結果の表示場所（最初は空）
+          const transResult = document.createElement("div");
+          transResult.classList.add("translate-result");
+          bubbleWrap.appendChild(transResult);
+
+          // ボタンを押したら翻訳する
+          transBtn.addEventListener("click", async () => {
+            transResult.textContent = "翻訳中…";
+            const translated = await translateText(msg.text);
+            transResult.textContent = translated;
+          });
+
+          // 自分は「吹き出し→アイコン」、相手は「アイコン→吹き出し」の順
+          if (isMine) {
+            div.appendChild(bubbleWrap);
+            div.appendChild(avatar);
+          } else {
+            div.appendChild(avatar);
+            div.appendChild(bubbleWrap);
+          }
+
+
+
+          // 自分の「最後の」メッセージで、相手がそれより後に読んでいれば「既読」
+          if (
+            isMine &&
+            msg.createdAt &&
+            lastMineTime &&
+            msg.createdAt.seconds === lastMineTime.seconds &&
+            otherReadTime &&
+            otherReadTime.seconds >= msg.createdAt.seconds
+          ) {
+            const read = document.createElement("div");
+            read.classList.add("read-mark");
+            read.textContent = "既読";
+            div.appendChild(read);
+          }
+
+          messagesDiv.appendChild(div);
+        });
+
+        // 一番下までスクロール
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+    }
+
+    // 送信
+    document.getElementById("sendBtn").addEventListener("click", sendMessage);
+    document.getElementById("messageInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    async function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (text === "") return;
+      await addDoc(messagesRef, {
+        senderId: currentUser.uid,
+        senderName: myName,
+        senderRole: myRole,
+        text: text,
+        type: "user",
+        createdAt: serverTimestamp()
+      });
+      input.value = "";
+    }
+
+    // テキストを翻訳する
+    // ※ブラウザから直接AIに繋ぐとセキュリティ制限(CORS)で止まるため、
+    //   本来はバックエンド経由で実装する。現在はUIのみ。
+    async function translateText(text) {
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            messages: [
+              {
+                role: "user",
+                content: "次の文を翻訳してください。日本語なら英語に、英語なら日本語にしてください。翻訳結果の文だけを返し、説明や前置きは一切つけないでください。\n\n" + text
+              }
+            ]
+          })
+        });
+        const data = await response.json();
+        const result = data.content
+          .filter(item => item.type === "text")
+          .map(item => item.text)
+          .join("");
+        return result || "（翻訳できませんでした）";
+      } catch (e) {
+        // バックエンド未実装のため、現状はここに来る
+        return "🌐 翻訳機能は実装予定です（バックエンド構築後に対応）";
+      }
+    }
+
+
+    // ログアウト
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+      location.href = "index.html";
+    });
+  </script>
+</body>
+</html>

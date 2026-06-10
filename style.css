@@ -1,0 +1,299 @@
+/* ===== TriArk カラーパレット =====
+   ネイビー #1A2E3A / シアン #00B4C8 / オレンジ #FF8C42 */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, "Hiragino Sans", sans-serif;
+  background: #eef1f3;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* ===== ログイン画面 ===== */
+.auth-box {
+  background: #fff;
+  padding: 36px 32px;
+  border-radius: 18px;
+  box-shadow: 0 6px 28px rgba(26,46,58,0.12);
+  width: 340px;
+  text-align: center;
+}
+.auth-logo {
+  width: 130px;
+  height: auto;
+  margin: 0 auto 8px;
+  display: block;
+}
+.subtitle {
+  color: #7a8a93;
+  font-size: 14px;
+  margin-bottom: 22px;
+  letter-spacing: 1px;
+}
+.auth-box input,
+.auth-box select {
+  width: 100%;
+  padding: 13px;
+  margin-bottom: 12px;
+  border: 1px solid #dce3e7;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.auth-box input:focus,
+.auth-box select:focus {
+  outline: none;
+  border-color: #00B4C8;
+}
+.auth-box button {
+  width: 100%;
+  padding: 13px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+#signupBtn {
+  background: #1A2E3A;
+  color: #fff;
+}
+#loginBtn {
+  background: #e3f6f9;
+  color: #00838f;
+}
+.message {
+  color: #d93025;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ===== チャット画面 ===== */
+.chat-box {
+  background: #fff;
+  width: 400px;
+  height: 620px;
+  border-radius: 18px;
+  box-shadow: 0 6px 28px rgba(26,46,58,0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-header {
+  background: #1A2E3A;
+  color: #fff;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.me-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.chat-header button {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ステータスバー */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #f6f8f9;
+  border-bottom: 1px solid #e8edf0;
+}
+.badge {
+  font-size: 13px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: #e8eaed;
+  color: #555;
+}
+.badge-inquiry   { background: #fff0e0; color: #c2620a; }
+.badge-requested { background: #ffe0b2; color: #bf6000; }
+.badge-confirmed { background: #d4f3ee; color: #00897b; }
+.badge-finished  { background: #e2e3e5; color: #555; }
+.action-btn {
+  background: #00B4C8;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* メッセージ一覧 */
+.messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 1行 */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.message-row.mine {
+  justify-content: flex-end;
+}
+.message-row.theirs {
+  justify-content: flex-start;
+}
+
+/* 吹き出しと翻訳をまとめる入れ物 */
+.bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+}
+.mine .bubble-wrap {
+  align-items: flex-end;
+}
+
+/* 吹き出し */
+.bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.mine .bubble {
+  background: #00B4C8;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.theirs .bubble {
+  background: #eef1f3;
+  color: #1A2E3A;
+  border-bottom-left-radius: 4px;
+}
+
+/* 丸い頭文字アイコン */
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+  flex-shrink: 0;
+}
+.avatar-guest { background: #00B4C8; } /* ゲストはシアン（海） */
+.avatar-host  { background: #FF8C42; } /* ホストはオレンジ（陸） */
+.me-info .avatar {
+  border: 2px solid #fff;
+}
+
+/* 既読 */
+.read-mark {
+  font-size: 10px;
+  color: #aab4b9;
+  align-self: flex-end;
+  margin: 0 4px;
+}
+
+/* 翻訳ボタン */
+.translate-btn {
+  background: none;
+  border: none;
+  color: #9aa7ad;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-top: 2px;
+  text-decoration: underline;
+}
+
+/* 翻訳結果 */
+.translate-result {
+  font-size: 13px;
+  color: #4a5a62;
+  background: #f4f7f8;
+  border-radius: 8px;
+  padding: 0 8px;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.translate-result:empty {
+  display: none;
+}
+
+/* システム自動メッセージ（中央の帯） */
+.system-row {
+  display: flex;
+  justify-content: center;
+}
+.system-note {
+  background: #eef1f3;
+  color: #7a8a93;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 12px;
+}
+
+/* 入力エリア */
+.input-area {
+  display: flex;
+  padding: 12px;
+  border-top: 1px solid #eee;
+  gap: 8px;
+}
+.input-area input {
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid #dce3e7;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+}
+.input-area input:focus {
+  border-color: #00B4C8;
+}
+.input-area button {
+  background: #1A2E3A;
+  color: #fff;
+  border: none;
+  padding: 0 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+}

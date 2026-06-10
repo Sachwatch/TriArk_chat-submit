@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TriArk - ログイン</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-box">
+    <img src="triark-logo.svg" alt="TriArk" class="auth-logo">
+    <p class="subtitle">ホストと旅をする</p>
+
+    <input type="text" id="name" placeholder="お名前">
+    <input type="email" id="email" placeholder="メールアドレス">
+    <input type="password" id="password" placeholder="パスワード">
+
+    <!-- ゲストかホストかを選ぶ（新規登録時に使う） -->
+    <select id="role">
+      <option value="guest">ゲストとして登録</option>
+      <option value="host">ホストとして登録</option>
+    </select>
+
+    <button id="signupBtn">新規登録</button>
+    <button id="loginBtn">ログイン</button>
+
+    <p id="message" class="message"></p>
+  </div>
+
+  <!-- Firebase本体（CDNから読み込む） -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    // 設定（config.jsの中身をここで読み込む想定）
+    import { firebaseConfig } from "./config.js";
+
+    // Firebaseを起動
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const message = document.getElementById("message");
+
+    // 新規登録
+    document.getElementById("signupBtn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const role = document.getElementById("role").value;
+      try {
+
+
+        const name = document.getElementById("name").value || "名無し";
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email: email,
+          role: role,
+          name: name
+        });
+
+        
+        message.textContent = "登録できました。チャットへ移動します…";
+        location.href = "chat.html";
+      } catch (e) {
+        message.textContent = "登録エラー: " + e.message;
+      }
+    });
+
+    // ログイン
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        location.href = "chat.html";
+      } catch (e) {
+        message.textContent = "ログインエラー: " + e.message;
+      }
+    });
+  </script>
+</body>
+</html>
