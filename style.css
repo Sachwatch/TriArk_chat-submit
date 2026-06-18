@@ -297,3 +297,41 @@ body {
   font-size: 14px;
   font-weight: bold;
 }
+
+/* 天気バー */
+.weather-bar {
+  padding: 10px 16px;
+  background: #f0f7f9;
+  border-bottom: 1px solid #e0eef2;
+  font-size: 13px;
+  color: #2a5560;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* 警報・注意報バー */
+.alert-bar {
+  padding: 9px 16px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: bold;
+  border-bottom: 1px solid #e8edf0;
+}
+.alert-safe {
+  background: #eafaf1;
+  color: #1e7e54;
+}
+.alert-warning {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+/* データ出典の表記 */
+.data-source {
+  padding: 6px 16px;
+  font-size: 10px;
+  color: #9aa7ad;
+  text-align: center;
+  background: #fafbfc;
+  border-top: 1px solid #f0f0f0;
+}

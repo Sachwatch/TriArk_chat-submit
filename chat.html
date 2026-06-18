@@ -26,6 +26,11 @@
       <button id="approveBtn" class="action-btn" style="display:none;">予約を承認する</button>
     </div>
 
+    <!-- ホストのエリアの天気（自動表示） -->
+    <div id="weatherBar" class="weather-bar">天気を読み込み中…</div>
+    <!-- 気象庁の警報・注意報（安全判断） -->
+    <div id="alertBar" class="alert-bar">警報情報を確認中…</div>
+
     <!-- メッセージがここに並ぶ -->
     <div id="messages" class="messages"></div>
 
@@ -34,8 +39,13 @@
       <input type="text" id="messageInput" placeholder="メッセージを入力">
       <button id="sendBtn">送信</button>
     </div>
+
+    <!-- データ出典の明記 -->
+    <div class="data-source">天気・警報情報の出典：Open-Meteo,気象庁ホームページ</div>
+
   </div>
 
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
     import {
@@ -95,6 +105,8 @@
       currentUser = user;
       await setupRoom();   // ルームの準備とステータス監視
       listenMessages();    // メッセージの監視を開始
+      loadWeather();    // ← この行を追加。天気を読み込む
+      loadAlerts();    // ← この行を追加。警報・注意報を読み込む
     });
 
     // ルームの準備とステータス監視
@@ -301,6 +313,128 @@
         createdAt: serverTimestamp()
       });
       input.value = "";
+    }
+
+    // ホストのエリア（浦安マリーナ）の天気を取得して表示する
+    const AREA_NAME = "浦安マリーナ";
+    const AREA_LAT = 35.65;   // 緯度
+    const AREA_LON = 139.92;  // 経度
+
+    async function loadWeather() {
+      const weatherBar = document.getElementById("weatherBar");
+      try {
+        // Open-Meteo に「この座標の天気」を問い合わせる
+        const url = "https://api.open-meteo.com/v1/forecast"
+          + "?latitude=" + AREA_LAT
+          + "&longitude=" + AREA_LON
+          + "&current=temperature_2m,weather_code,wind_speed_10m"
+          + "&timezone=Asia%2FTokyo";
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const temp = data.current.temperature_2m;       // 気温
+        const wind = data.current.wind_speed_10m;        // 風速
+        const code = data.current.weather_code;          // 天気コード（数字）
+
+        // 天気コードを日本語＋絵文字に変換
+        const w = weatherText(code);
+
+        weatherBar.textContent =
+          "📍" + AREA_NAME + "　" + w + "　" + temp + "℃　風 " + wind + "km/h";
+      } catch (e) {
+        weatherBar.textContent = "📍" + AREA_NAME + "　天気を取得できませんでした";
+      }
+    }
+
+    // Open-Meteo の天気コードを、日本語と絵文字に変換する
+    function weatherText(code) {
+      if (code === 0) return "☀️ 快晴";
+      if (code <= 3) return "🌤️ 晴れ時々曇り";
+      if (code <= 48) return "🌫️ 霧";
+      if (code <= 67) return "🌧️ 雨";
+      if (code <= 77) return "❄️ 雪";
+      if (code <= 82) return "🌧️ にわか雨";
+      if (code <= 99) return "⛈️ 雷雨";
+      return "🌍 不明";
+    }
+
+    // 気象庁の警報・注意報を取得して表示する
+    const AREA_CODE = "120000"; // 千葉県（浦安マリーナ）
+
+    async function loadAlerts() {
+      const alertBar = document.getElementById("alertBar");
+      try {
+        const url = "https://www.jma.go.jp/bosai/warning/data/warning/" + AREA_CODE + ".json";
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // 発表中の警報・注意報の名前を集める
+        const activeAlerts = collectAlerts(data);
+
+        if (activeAlerts.length === 0) {
+          alertBar.textContent = "✅ 現在、警報・注意報は出ていません（出航・催行の判断材料）";
+          alertBar.className = "alert-bar alert-safe";
+        } else {
+          alertBar.textContent = "⚠️ " + activeAlerts.join("・") + "　安全のため催行の可否をご確認ください";
+          alertBar.className = "alert-bar alert-warning";
+        }
+      } catch (e) {
+        alertBar.textContent = "気象庁の警報情報を取得できませんでした";
+        alertBar.className = "alert-bar";
+      }
+    }
+
+    // 気象庁データから、今出ている警報・注意報の名前を取り出す
+    function collectAlerts(data) {
+      const names = new Set(); // 重複を除くためSetを使う
+      try {
+        // データの中の各エリアの警報情報を見ていく
+        data.areaTypes.forEach(areaType => {
+          areaType.areas.forEach(area => {
+            area.warnings.forEach(w => {
+              // status が「発表」「継続」のものだけを対象にする（解除は除く）
+              if (w.status !== "解除" && w.status !== "発表警報・注意報はなし") {
+                const name = warningName(w.code);
+                if (name) names.add(name);
+              }
+            });
+          });
+        });
+      } catch (e) {
+        // データ構造が想定と違っても落ちないようにする
+      }
+      return Array.from(names);
+    }
+
+    // 警報コードを日本語名に変換する（主要なものだけ）
+    function warningName(code) {
+      const map = {
+        "02": "暴風雪警報",
+        "03": "大雨警報",
+        "04": "洪水警報",
+        "05": "暴風警報",
+        "06": "大雪警報",
+        "07": "波浪警報",
+        "08": "高潮警報",
+        "10": "大雨注意報",
+        "12": "大雪注意報",
+        "13": "風雪注意報",
+        "14": "雷注意報",
+        "15": "強風注意報",
+        "16": "波浪注意報",
+        "17": "融雪注意報",
+        "18": "洪水注意報",
+        "19": "高潮注意報",
+        "20": "濃霧注意報",
+        "21": "乾燥注意報",
+        "22": "なだれ注意報",
+        "23": "低温注意報",
+        "24": "霜注意報",
+        "25": "着氷注意報",
+        "26": "着雪注意報"
+      };
+      return map[code] || null;
     }
 
     // テキストを翻訳する
